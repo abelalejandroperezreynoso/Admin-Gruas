@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <title>Admin Panel - 2026 GRUAS AGS</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .animate-fadeIn { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-3 md:p-8 font-sans min-h-screen">
+
+    <div class="max-w-7xl mx-auto pb-10">
+        <header class="mb-6 md:mb-8 text-center pt-2">
+            <h1 class="text-2xl md:text-4xl font-extrabold text-slate-800 leading-tight">Administración<br class="md:hidden"> de Base de Datos</h1>
+            <p class="text-sm md:text-base text-slate-500 mt-2">Gestión de Tarifas, Zonas y Catálogo</p>
+        </header>
+
+        <!-- NAVEGACIÓN -->
+        <div class="w-full mb-8">
+                    <div class="flex flex-row items-center gap-2 bg-slate-200/60 p-1.5 rounded-2xl w-fit mx-auto shadow-inner overflow-x-auto no-scrollbar max-w-full">
+                        <button id="tab-estadisticas" onclick="showTab('estadisticas')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 bg-white shadow text-rose-600 whitespace-nowrap"><i class="fa-solid fa-chart-line mr-2"></i>Métricas</button>
+                        
+                        <button id="tab-cargas" onclick="showTab('cargas')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-2"></i>Tarifas</button>
+                        <button id="tab-vehiculos" onclick="showTab('vehiculos')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-truck-pickup mr-2"></i>Vehículos</button>
+                        <button id="tab-categorias" onclick="showTab('categorias')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-tags mr-2"></i>Categorías</button>
+                        <button id="tab-zonas" onclick="showTab('zonas')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-map-location-dot mr-2"></i>Zonas</button>
+                        <button id="tab-formula" onclick="showTab('formula')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-calculator mr-2"></i>Lógica</button>
+                        <button id="tab-configuracion" onclick="showTab('configuracion')" class="flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 text-slate-600 hover:bg-slate-200 whitespace-nowrap"><i class="fa-solid fa-gears mr-2"></i>Ajustes</button>
+                    </div>
+                </div>
+
+        <!-- VISTA CARGAS -->
+        <div id="view-cargas" class="hidden animate-fadeIn">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h2 class="text-lg md:text-xl font-bold text-slate-700">Listado de Tarifas Base</h2>
+                <button onclick="openModal('modal-cargas')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-md shadow-blue-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden md:inline">Nueva Tarifa</span>
+                </button>
+            </div>
+
+            <!-- Modal Cargas -->
+            <div id="modal-cargas" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+                <div class="bg-white p-5 md:p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl transform scale-95 transition-transform duration-300 relative max-h-[95vh] overflow-y-auto no-scrollbar">
+                    <button type="button" onclick="closeModal('modal-cargas'); resetFormCargas();" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 class="text-lg md:text-xl font-bold mb-6 text-slate-700 flex items-center mt-2"><span class="w-1.5 h-6 bg-blue-500 rounded-full mr-3"></span><span id="cargas-form-title">Nuevo Registro de Tarifa Base</span></h2>
+                    
+                    <form id="form-cargas" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                        <input type="hidden" id="cargas-id">
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Nombre de la Grúa</label>
+                            <input type="text" id="cargas-tipo" required placeholder="Ej. Grúa Tipo A (Ligera)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Vehículos que Remolca</label>
+                            <input type="text" id="cargas-categoria" required placeholder="Ej. Autos sedán, hatchback, SUV" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                        </div>
+                        
+                        <div class="md:col-span-3 border-t border-slate-100 pt-4 mt-2">
+                            <p class="text-sm font-bold text-slate-700 mb-4">Tabulador de Costos ($ MXN)</p>
+                            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Banderazo</label>
+                                    <input type="number" step="0.01" id="cargas-base" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Precio por KM</label>
+                                    <input type="number" step="0.01" id="cargas-km" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Ruedas Bloq.</label>
+                                    <input type="number" step="0.01" id="cargas-ruedas" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Abanderamiento</label>
+                                    <input type="number" step="0.01" id="cargas-abanderamiento" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Extracción</label>
+                                    <input type="number" step="0.01" id="cargas-extraccion" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                                <div class="col-span-1 md:col-span-2">
+                                    <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Tiempo Espera / Hr</label>
+                                    <input type="number" step="0.01" id="cargas-espera" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="md:col-span-3 flex flex-col-reverse md:flex-row justify-end gap-3 mt-6">
+                            <button type="button" onclick="closeModal('modal-cargas'); resetFormCargas();" class="w-full md:w-auto px-6 py-3 md:py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-all border border-slate-200 md:border-transparent">Cancelar</button>
+                            <button type="submit" id="cargas-btn" class="w-full md:w-auto px-8 py-3 md:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all">Guardar Datos</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla Cargas -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full mt-4">
+                <div class="overflow-x-auto w-full">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                                                    <tr>
+                                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Fecha / Hora</th>
+                                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Evento</th>
+                                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Detalles Extras</th>
+                                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Usuario / Disp.</th>
+                                                    </tr>
+                                                </thead>
+                        <tbody id="table-cargas" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA VEHÍCULOS -->
+        <div id="view-vehiculos" class="hidden animate-fadeIn">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h2 class="text-lg md:text-xl font-bold text-slate-700">Catálogo de Botones</h2>
+                <button onclick="openModal('modal-vehiculos')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-md shadow-indigo-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden md:inline">Nuevo Vehículo</span>
+                </button>
+            </div>
+
+            <!-- Modal Vehiculos -->
+            <div id="modal-vehiculos" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+                <div class="bg-white p-5 md:p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl transform scale-95 transition-transform duration-300 relative max-h-[90vh] overflow-y-auto no-scrollbar">
+                    <button type="button" onclick="closeModal('modal-vehiculos'); resetFormVehiculos();" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 class="text-lg md:text-xl font-bold mb-6 text-slate-700 flex items-center mt-2"><span class="w-1.5 h-6 bg-indigo-500 rounded-full mr-3"></span><span id="vehiculos-form-title">Nuevo Botón de Vehículo</span></h2>
+                    <form id="form-vehiculos" class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+                        <input type="hidden" id="vehiculos-id">
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Nombre a mostrar</label>
+                            <input type="text" id="vehiculos-nombre" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Categoría</label>
+                            <select id="vehiculos-categoria-id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:bg-white cursor-pointer"></select>
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Tarifa Asignada</label>
+                            <select id="vehiculos-tipo-carga-id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:bg-white cursor-pointer"></select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Imagen del Vehículo</label>
+                            <input type="file" id="vehiculos-archivo" accept="image/png, image/jpeg, image/webp, image/svg+xml" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 md:py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                            <input type="hidden" id="vehiculos-imagen-url">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Orden de Aparición</label>
+                            <input type="number" id="vehiculos-orden" required value="1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500 focus:bg-white">
+                        </div>
+                        <div class="md:col-span-4 flex flex-col-reverse md:flex-row justify-end gap-3 mt-6">
+                            <button type="button" onclick="closeModal('modal-vehiculos'); resetFormVehiculos();" class="w-full md:w-auto px-6 py-3 md:py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-all border border-slate-200 md:border-transparent">Cancelar</button>
+                            <button type="submit" id="vehiculos-btn" class="w-full md:w-auto px-8 py-3 md:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all">Guardar Botón</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla Vehiculos -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full mt-4">
+                <div class="overflow-x-auto w-full">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase w-16">Orden</th>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase w-16">Icono</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Nombre a Mostrar</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Categoría</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Tarifa Asignada</th>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-vehiculos" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA CATEGORÍAS -->
+        <div id="view-categorias" class="hidden animate-fadeIn">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h2 class="text-lg md:text-xl font-bold text-slate-700">Categorías de Vehículos</h2>
+                <button onclick="openModal('modal-categorias')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-md shadow-yellow-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden md:inline">Nueva Categoría</span>
+                </button>
+            </div>
+
+            <!-- Modal Categorias -->
+            <div id="modal-categorias" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+                <div class="bg-white p-5 md:p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl transform scale-95 transition-transform duration-300 relative max-h-[90vh] overflow-y-auto no-scrollbar">
+                    <button type="button" onclick="closeModal('modal-categorias'); resetFormCategorias();" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 class="text-lg md:text-xl font-bold mb-6 text-slate-700 flex items-center mt-2"><span class="w-1.5 h-6 bg-yellow-400 rounded-full mr-3"></span><span id="categorias-form-title">Nueva Categoría</span></h2>
+                    <form id="form-categorias" class="grid grid-cols-1 gap-4 md:gap-6">
+                        <input type="hidden" id="categorias-id">
+                        <div>
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Nombre de la Categoría</label>
+                            <input type="text" id="categorias-nombre" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-yellow-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Imagen de la Categoría</label>
+                            <input type="file" id="categorias-archivo" accept="image/png, image/jpeg, image/webp, image/svg+xml" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 md:py-1.5 text-sm outline-none transition-all focus:ring-2 focus:ring-yellow-500 focus:bg-white">
+                            <input type="hidden" id="categorias-imagen-url">
+                        </div>
+                        <div class="flex flex-col-reverse md:flex-row justify-end gap-3 mt-6">
+                            <button type="button" onclick="closeModal('modal-categorias'); resetFormCategorias();" class="w-full md:w-auto px-6 py-3 md:py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-all border border-slate-200 md:border-transparent">Cancelar</button>
+                            <button type="submit" id="categorias-btn" class="w-full md:w-auto px-8 py-3 md:py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold shadow-lg shadow-yellow-200 transition-all">Guardar Categoría</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla Categorias -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full mt-4">
+                <div class="overflow-x-auto w-full">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase w-16">ID</th>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase w-16">Icono</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Nombre de la Categoría</th>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase w-48">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-categorias" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA ZONAS -->
+        <div id="view-zonas" class="hidden animate-fadeIn">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h2 class="text-lg md:text-xl font-bold text-slate-700">Geocercas y Coberturas</h2>
+                <button onclick="openModalZonas()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-md shadow-emerald-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden md:inline">Nueva Zona</span>
+                </button>
+            </div>
+
+            <!-- Modal Zonas -->
+            <div id="modal-zonas" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+                <div class="bg-white p-5 md:p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl transform scale-95 transition-transform duration-300 relative max-h-[95vh] overflow-y-auto no-scrollbar">
+                    <button type="button" onclick="closeModal('modal-zonas'); resetFormZonas();" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10"><i class="fa-solid fa-xmark"></i></button>
+                    <h2 class="text-lg md:text-xl font-bold mb-6 text-slate-700 flex items-center mt-2"><span class="w-1.5 h-6 bg-emerald-500 rounded-full mr-3"></span><span id="zonas-form-title">Nueva Zona de Cobertura</span></h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                        <form id="form-zonas" class="grid grid-cols-2 gap-4 order-2 lg:order-1">
+                            <input type="hidden" id="zonas-id">
+                            <div class="col-span-2">
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Nombre de la Zona</label>
+                                <input type="text" id="zonas-nombre" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-emerald-500 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Costo Extra ($)</label>
+                                <input type="number" step="0.01" id="zonas-costo" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-emerald-500 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Radio (KM)</label>
+                                <input type="number" step="0.01" id="zonas-radio" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-emerald-500 focus:bg-white" oninput="updateCircleFromForm()">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Latitud</label>
+                                <input type="number" step="any" id="zonas-lat" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-emerald-500 focus:bg-white" oninput="updateMarkerFromForm()">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Longitud</label>
+                                <input type="number" step="any" id="zonas-lng" required value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-emerald-500 focus:bg-white" oninput="updateMarkerFromForm()">
+                            </div>
+                            <div class="col-span-2 flex flex-col-reverse md:flex-row justify-end gap-3 mt-6">
+                                <button type="button" onclick="closeModal('modal-zonas'); resetFormZonas();" class="w-full md:w-auto px-6 py-3 md:py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-all border border-slate-200 md:border-transparent">Cancelar</button>
+                                <button type="submit" id="zonas-btn" class="w-full md:w-auto px-8 py-3 md:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all">Guardar Zona</button>
+                            </div>
+                        </form>
+                        <div class="border border-slate-200 p-2 rounded-2xl order-1 lg:order-2 flex flex-col bg-slate-50">
+                            <p class="text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-2 px-1 text-center md:text-left">Ubica la zona en el mapa</p>
+                            <div id="map-admin" class="w-full rounded-xl overflow-hidden shadow-inner flex-grow" style="min-height: 300px; height: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mapa Principal de Zonas -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 w-full mb-6 mt-4">
+                <p class="text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-2 px-1">Mapa de Cobertura General</p>
+                <div id="map-zonas-main" class="w-full rounded-xl overflow-hidden shadow-inner bg-slate-50" style="min-height: 350px; height: 400px;"></div>
+            </div>
+
+            <!-- Tabla Zonas -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full mt-4">
+                <div class="overflow-x-auto w-full">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Nombre</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Costo Extra</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Radio</th>
+                                <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Coordenadas</th>
+                                <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-zonas" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA FÓRMULA / SIMULADOR INTERACTIVO (100% DINÁMICO) -->
+        <div id="view-formula" class="hidden animate-fadeIn">
+            <div class="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-xl md:text-2xl font-bold mb-6 text-slate-800 flex items-center">
+                    <span class="w-1.5 md:w-2 h-6 md:h-8 bg-purple-500 rounded-full mr-3 md:mr-4"></span>
+                    Fórmula Oficial SICT / CMOV 2026 + Cobros Comunes
+                </h2>
+
+                <p class="text-sm text-slate-500 mb-6 px-2">Estructura interactiva basada en el estándar normativo y operativo: <strong>Ctotal = B + (D×K) + M</strong>.</p>
+
+                <!-- Fórmula Interactiva Botones -->
+                <div class="flex flex-wrap items-center justify-center gap-1.5 md:gap-3 mb-8 bg-slate-900 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-inner">
+                    <button type="button" onclick="showSimTab('banderazo')" id="sim-btn-banderazo" class="flex flex-col items-center p-2 md:p-3 bg-blue-500 text-white rounded-xl border-2 border-blue-400 font-bold transition-all hover:bg-blue-400 w-24 md:w-28 shadow-lg scale-105 cursor-pointer">
+                        <span class="text-xs md:text-sm font-black text-blue-200 mb-1">[ B ]</span>
+                        <span class="text-[9px] md:text-[10px] uppercase tracking-wider opacity-90">Banderazo</span>
+                        <span id="lbl-banderazo" class="text-base md:text-lg mt-1">$0.00</span>
+                    </button>
+                    <span class="text-lg md:text-xl font-black text-slate-500">+</span>
+                    
+                    <button type="button" onclick="showSimTab('arrastre')" id="sim-btn-arrastre" class="flex flex-col items-center p-2 md:p-3 bg-slate-800 text-slate-300 rounded-xl border-2 border-transparent font-bold transition-all hover:bg-slate-700 w-24 md:w-28 cursor-pointer">
+                        <span class="text-xs md:text-sm font-black text-slate-500 mb-1">[ D×K ]</span>
+                        <span class="text-[9px] md:text-[10px] uppercase tracking-wider opacity-80">Arrastre</span>
+                        <span id="lbl-arrastre" class="text-base md:text-lg mt-1">$0.00</span>
+                    </button>
+                    <span class="text-lg md:text-xl font-black text-slate-500">+</span>
+                    
+                    <button type="button" onclick="showSimTab('maniobras')" id="sim-btn-maniobras" class="flex flex-col items-center p-2 md:p-3 bg-slate-800 text-slate-300 rounded-xl border-2 border-transparent font-bold transition-all hover:bg-slate-700 w-24 md:w-28 cursor-pointer">
+                        <span class="text-xs md:text-sm font-black text-slate-500 mb-1">[ M ]</span>
+                        <span class="text-[9px] md:text-[10px] uppercase tracking-wider opacity-80">Maniobras</span>
+                        <span id="lbl-maniobras" class="text-base md:text-lg mt-1">$0.00</span>
+                    </button>
+                    <span class="text-lg md:text-xl font-black text-slate-500">-</span>
+                    
+                    <button type="button" onclick="showSimTab('descuento')" id="sim-btn-descuento" class="flex flex-col items-center p-2 md:p-3 bg-slate-800 text-slate-300 rounded-xl border-2 border-transparent font-bold transition-all hover:bg-slate-700 w-24 md:w-28 cursor-pointer">
+                        <span class="text-xs md:text-sm font-black text-slate-500 mb-1">[ % ]</span>
+                        <span class="text-[9px] md:text-[10px] uppercase tracking-wider opacity-80">Descuento</span>
+                        <span id="lbl-descuento" class="text-base md:text-lg mt-1">$0.00</span>
+                    </button>
+                    <span class="text-lg md:text-xl font-black text-slate-300 ml-2 mr-2">=</span>
+                    
+                    <div class="flex flex-col items-center p-3 md:p-4 bg-emerald-500 text-white rounded-xl border-2 border-emerald-400 font-black w-32 md:w-40 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                        <span class="text-xs md:text-sm font-black text-emerald-200 mb-1">[ Ctotal ]</span>
+                        <span class="text-[10px] md:text-xs uppercase tracking-wider opacity-90">Costo Final</span>
+                        <span id="lbl-total" class="text-xl md:text-2xl mt-1">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Paneles Internos -->
+                <div class="bg-slate-50 border border-slate-200 p-5 md:p-8 rounded-2xl min-h-[250px]">
+                    <!-- Panel 1: Banderazo [B] -->
+                    <div id="sim-panel-banderazo" class="sim-panel animate-fadeIn">
+                        <h3 class="font-bold text-blue-800 text-lg mb-2 flex items-center"><i class="fa-solid fa-truck-pickup mr-2"></i> [ B ] - Banderazo de Salida</h3>
+                        <p class="text-sm text-slate-600 mb-6">Selecciona la tarifa. Los precios de todas las maniobras se ajustarán automáticamente a la clasificación de la grúa leída desde la base de datos.</p>
+                        <div class="w-full md:w-1/2">
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Clasificación de Tarifa Base</label>
+                            <select id="sim-tarifa" class="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm" onchange="calcularSimulacion()"><option value="">Cargando tarifas...</option></select>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: Arrastre MAPA INTERACTIVO [D x K] -->
+                    <div id="sim-panel-arrastre" class="sim-panel hidden animate-fadeIn">
+                        <h3 class="font-bold text-indigo-800 text-lg mb-2 flex items-center"><i class="fa-solid fa-route mr-2"></i> [ D × K ] - Kilometraje de Arrastre</h3>
+                        <p class="text-sm text-slate-600 mb-4">Calcula la distancia real de manejo usando el mapa.</p>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-1 space-y-4">
+                               <!-- NUEVO: Indicador de Zona Activa -->
+                                <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 mb-2 flex items-center justify-between">
+                                    <div>
+                                        <span class="block text-[10px] font-bold uppercase text-indigo-800 mb-0.5"><i class="fa-solid fa-satellite-dish mr-1"></i> Base Operativa Activa</span>
+                                        <span id="lbl-zona-activa" class="text-xs text-indigo-600 font-bold">Cargando...</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Distancia de Ruta (KM)</label>
+                                    <input type="number" id="sim-km" value="0" min="0" step="0.1" class="w-full bg-slate-100 border border-indigo-200 rounded-xl px-4 py-3 text-sm font-bold text-indigo-700 outline-none shadow-sm cursor-not-allowed" readonly>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="setSimClickMode('origen')" id="btn-sim-origen" class="flex-1 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border-2 border-slate-800 shadow-sm transition-all">📍 Punto A</button>
+                                    <button type="button" onclick="setSimClickMode('destino')" id="btn-sim-destino" class="flex-1 py-2 bg-white text-slate-800 text-xs font-bold rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all">🏁 Punto B</button>
+                                </div>
+                            </div>
+                            <div class="lg:col-span-2 relative">
+                                <div id="map-simulador" class="w-full h-64 rounded-xl overflow-hidden shadow-inner border border-slate-200 bg-slate-100 flex items-center justify-center">
+                                    <span class="text-slate-400 text-sm font-bold">Cargando mapa...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Maniobras y Extras [M] -->
+                    <div id="sim-panel-maniobras" class="sim-panel hidden animate-fadeIn">
+                        <h3 class="font-bold text-orange-800 text-lg mb-2 flex items-center"><i class="fa-solid fa-toolbox mr-2"></i> [ M ] - Maniobras y Extras Operativos</h3>
+                        <p class="text-sm text-slate-600 mb-6">Estos valores se consultan en tiempo real desde Supabase según la grúa seleccionada.</p>
+                        <div class="flex flex-col gap-4 w-full md:w-2/3">
+                            <label class="flex items-center gap-3 cursor-pointer p-4 bg-white rounded-xl border border-orange-200 hover:border-orange-400 transition-all shadow-sm">
+                                <input type="checkbox" id="sim-ruedas" class="w-5 h-5 text-orange-600 rounded focus:ring-orange-500" onchange="calcularSimulacion()">
+                                <div><span class="block text-sm font-bold text-slate-700">Ruedas Bloqueadas / Uso de Patines</span><span class="block text-xs text-slate-500 font-mono" id="lbl-dyn-ruedas">+ $0.00 MXN</span></div>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer p-4 bg-white rounded-xl border border-orange-200 hover:border-orange-400 transition-all shadow-sm">
+                                <input type="checkbox" id="sim-abanderamiento" class="w-5 h-5 text-orange-600 rounded focus:ring-orange-500" onchange="calcularSimulacion()">
+                                <div><span class="block text-sm font-bold text-slate-700">Abanderamiento Preventivo</span><span class="block text-xs text-slate-500 font-mono" id="lbl-dyn-abanderamiento">+ $0.00 MXN</span></div>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer p-4 bg-white rounded-xl border border-orange-200 hover:border-orange-400 transition-all shadow-sm">
+                                <input type="checkbox" id="sim-extraccion" class="w-5 h-5 text-orange-600 rounded focus:ring-orange-500" onchange="calcularSimulacion()">
+                                <div><span class="block text-sm font-bold text-slate-700">Maniobra de Extracción / Salvamento</span><span class="block text-xs text-slate-500 font-mono" id="lbl-dyn-extraccion">+ $0.00 MXN</span></div>
+                            </label>
+                            <div class="p-4 bg-white rounded-xl border border-orange-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div class="flex-1"><span class="block text-sm font-bold text-slate-700">Tiempo de Espera en Sitio</span><span class="block text-xs text-slate-500 font-mono" id="lbl-dyn-espera">$0.00 MXN / hr</span></div>
+                                <div class="w-full sm:w-32 flex items-center gap-2">
+                                    <input type="number" id="sim-horas-espera" value="0" min="0" step="0.5" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500" oninput="calcularSimulacion()"><span class="text-xs font-bold text-slate-500">Hrs</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 4: Descuento [%] -->
+                    <div id="sim-panel-descuento" class="sim-panel hidden animate-fadeIn">
+                        <h3 class="font-bold text-rose-800 text-lg mb-2 flex items-center"><i class="fa-solid fa-tag mr-2"></i> [ % ] - Ajuste Comercial</h3>
+                        <p class="text-sm text-slate-600 mb-6">Valor extraído de BD. Reduce el total del tabulador oficial como beneficio al cliente.</p>
+                        <div class="p-5 bg-white border border-rose-200 rounded-xl w-full md:w-1/2 flex items-center justify-between shadow-sm">
+                            <span class="text-slate-700 font-bold uppercase text-xs">Descuento Activo:</span>
+                            <span id="sim-desc-val" class="text-rose-600 font-black text-3xl">0%</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA CONFIGURACION -->
+        <div id="view-configuracion" class="hidden animate-fadeIn">
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 w-full md:max-w-2xl mx-auto md:mx-0">
+                        <h2 class="text-lg md:text-xl font-bold mb-5 text-slate-700 flex items-center">
+                            <span class="w-1.5 h-6 bg-orange-500 rounded-full mr-3"></span>
+                            Ajustes de Sistema
+                        </h2>
+                        <form id="form-configuracion" class="grid grid-cols-1 gap-4 md:gap-6">
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5"><i class="fa-solid fa-map-location-dot mr-1 text-orange-500"></i> Zona Base Predeterminada</label>
+                                <select id="config-zona-base" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500 focus:bg-white cursor-pointer">
+                                    <option value="">Cargando zonas...</option>
+                                </select>
+                                <p class="text-[9px] text-slate-400 mt-1">Los servicios fuera de esta zona cobrarán automáticamente la distancia desde la base.</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Número de WhatsApp (Con código de país)</label>
+                                <input type="tel" id="config-whatsapp" required placeholder="524491047746" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Tarifa Recargo Nocturno ($ MXN)</label>
+                                <input type="number" step="0.01" id="config-nocturno" required placeholder="150" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5">Porcentaje de Descuento (%)</label>
+                                <input type="number" step="0.01" id="config-descuento" required placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5"><i class="fa-solid fa-eye-slash mr-1 text-orange-500"></i> IDs Ignorados en Métricas</label>
+                                <input type="text" id="config-ignorados" placeholder="Ej. id-usuario-1, id-usuario-2" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 md:py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500 focus:bg-white">
+                                <p class="text-[9px] text-slate-400 mt-1">Estos IDs no sumarán en las gráficas ni contadores (separar por coma).</p>
+                            </div>
+                            <div class="flex flex-col md:flex-row justify-end items-center gap-3 mt-2">
+                                <span id="msg-config" class="hidden text-sm font-bold text-green-600 animate-fadeIn order-2 md:order-1 text-center w-full md:w-auto">¡Actualizado exitosamente!</span>
+                                <button type="submit" class="w-full md:w-auto px-8 py-3 md:py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold shadow-lg shadow-orange-200 transition-all order-1 md:order-2">Guardar Ajustes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+        <!-- VISTA ESTADISTICAS -->
+        <div id="view-estadisticas" class="animate-fadeIn">
+                    
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 w-full mb-6">
+                        <h3 class="font-bold text-slate-700 mb-4 text-sm md:text-base flex items-center"><span class="w-1.5 h-5 md:h-6 bg-indigo-500 rounded-full mr-3"></span> Comportamiento de Demanda (Últimos Días)</h3>
+                        <div class="relative w-full h-64 md:h-72">
+                            <canvas id="demandaChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 w-full">
+                        <div class="flex flex-col md:flex-row items-end gap-4 w-full mb-4">
+                            <div class="w-full md:w-auto flex-1">
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5"><i class="fa-regular fa-calendar mr-1"></i> Fecha Inicio</label>
+                                <input type="date" id="filtro-fecha-inicio" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-rose-500 focus:bg-white text-slate-600 font-bold cursor-pointer">
+                            </div>
+                            <div class="w-full md:w-auto flex-1">
+                                <label class="block text-[10px] md:text-xs font-bold uppercase text-slate-500 mb-1.5"><i class="fa-regular fa-calendar mr-1"></i> Fecha Fin</label>
+                                <input type="date" id="filtro-fecha-fin" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none transition-all focus:ring-2 focus:ring-rose-500 focus:bg-white text-slate-600 font-bold cursor-pointer">
+                            </div>
+                            <div class="w-full md:w-auto flex gap-2">
+                                <button onclick="actualizarColorBotones(null); fetchEstadisticas()" class="flex-1 md:flex-none px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold shadow-md transition-all text-sm flex items-center justify-center"><i class="fa-solid fa-filter mr-2"></i>Aplicar</button>
+                                <button onclick="limpiarFiltrosFecha()" class="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg font-bold transition-all text-sm flex items-center justify-center" title="Limpiar fechas"><i class="fa-solid fa-eraser"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+                            <span class="text-[10px] font-bold uppercase text-slate-400 mr-2"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Rápidos:</span>
+                            <button onclick="setRangoFechas('hoy')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">Hoy</button>
+                            <button onclick="setRangoFechas('ayer')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">Ayer</button>
+                            <button onclick="setRangoFechas('7dias')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">Últimos 7 Días</button>
+                            <button onclick="setRangoFechas('este_mes')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">Este Mes</button>
+                            <button onclick="setRangoFechas('mes_pasado')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">Mes Pasado</button>
+                            <button onclick="setRangoFechas('todo')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors shadow-sm ml-auto md:ml-2">Todo el Tiempo</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-bold uppercase text-slate-500 mb-1">Visitas a la Web</p>
+                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">👁️</div>
+                            </div>
+                            <h3 class="text-3xl font-black text-slate-800 mt-2" id="stat-visitas">-</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-bold uppercase text-blue-500 mb-1">Cotizadores Abiertos</p>
+                                <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">📍</div>
+                            </div>
+                            <h3 class="text-3xl font-black text-blue-600 mt-2" id="stat-cotizaciones">-</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-bold uppercase text-green-600 mb-1">Solicitudes WhatsApp</p>
+                                <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">💬</div>
+                            </div>
+                            <h3 class="text-3xl font-black text-green-600 mt-2" id="stat-whatsapp">-</h3>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full mt-6">
+                                    <div class="p-4 md:p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                                        <h3 class="font-bold text-slate-700 flex items-center text-sm md:text-base"><span class="w-1.5 h-5 md:h-6 bg-rose-500 rounded-full mr-3"></span>Últimos Eventos Registrados</h3>
+                                        
+                                        <div class="flex gap-1 bg-slate-100 p-1 rounded-lg overflow-x-auto w-full md:w-auto">
+                                            <button onclick="setFiltroTabla('todos')" id="btn-filt-todos" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-slate-700 transition-all whitespace-nowrap">Todos</button>
+                                            <button onclick="setFiltroTabla('visita_pagina')" id="btn-filt-visita" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all whitespace-nowrap">Visitas</button>
+                                            <button onclick="setFiltroTabla('abrio_cotizador')" id="btn-filt-cotizador" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all whitespace-nowrap">Cotizadores</button>
+                                            <button onclick="setFiltroTabla('solicitud_whatsapp')" id="btn-filt-whatsapp" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all whitespace-nowrap">WhatsApp</button>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto w-full">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Fecha / Hora</th>
+                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Evento</th>
+                                        <th class="px-4 md:px-6 py-4 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase">Usuario / Disp.</th>
+                                        <th class="px-4 md:px-6 py-4 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase">Detalles</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-estadisticas" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="modal-detalles-estadisticas" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+                        <div class="bg-white p-5 md:p-8 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md transform scale-95 transition-transform duration-300 relative">
+                            <button type="button" onclick="closeModal('modal-detalles-estadisticas')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                            <h2 class="text-lg md:text-xl font-bold mb-4 text-slate-700 flex items-center mt-2"><span class="w-1.5 h-6 bg-rose-500 rounded-full mr-3"></span>Detalles de Actividad</h2>
+                            <div id="contenido-detalles-estadisticas" class="mt-4 w-full"></div>
+                        </div>
+                    </div>
+                    
+                </div> </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        // CONFIGURACIÓN SUPABASE
+        const SUPABASE_URL = 'https://vdmvdlvxhzunxdptjoim.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkbXZkbHZ4aHp1bnhkcHRqb2ltIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzMwMTU3MiwiZXhwIjoyMDkyODc3NTcyfQ.LX2W2RSGdx4HWdOlctpabLaDfZbde13TY-dy9Dj9O-M';
+        const adminSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const TBL_CARGAS = 'tipos_carga'; const TBL_ZONAS = 'zonas'; const TBL_CONFIGURACION = 'configuracion';
+        const TBL_ESTADISTICAS = 'registro_actividad'; const TBL_VEHICULOS = 'catalogo_vehiculos'; const TBL_CATEGORIAS = 'categorias_vehiculos';
+
+        // VARIABLES DE MAPAS
+        let map, mapMain, pickerMarker, currentCircle;
+        let existingZonesCircles = [], existingMainZonesCircles = [], existingZonesLabels = [], existingMainZonesLabels = [];
+        let simMap, simDirectionsService, simDirectionsRenderer, simMarkerA = null, simMarkerB = null, currentSimClickMode = 'origen';
+
+        // ==========================================
+        // CONTROL DE MODALES
+        // ==========================================
+        function openModal(id) { const m = document.getElementById(id); m.classList.remove('hidden'); void m.offsetWidth; m.classList.remove('opacity-0'); m.children[0].classList.remove('scale-95'); m.children[0].classList.add('scale-100'); }
+        function closeModal(id) { const m = document.getElementById(id); m.classList.add('opacity-0'); m.children[0].classList.remove('scale-100'); m.children[0].classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden'); }, 300); }
+        function openModalZonas() { openModal('modal-zonas'); setTimeout(() => { if (map) { google.maps.event.trigger(map, 'resize'); if(document.getElementById('zonas-id').value === '') map.panTo({ lat: 21.8853, lng: -102.2916 }); else updateMarkerFromForm(); } }, 310); }
+
+        function initMap() {
+            const cAgs = { lat: 21.8853, lng: -102.2916 }, mStyles = [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }, { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] }];
+            if (document.getElementById("map-zonas-main")) mapMain = new google.maps.Map(document.getElementById("map-zonas-main"), { center: cAgs, zoom: 12, disableDefaultUI: true, gestureHandling: "greedy", styles: mStyles });
+            
+            map = new google.maps.Map(document.getElementById("map-admin"), { center: cAgs, zoom: 12, disableDefaultUI: true, gestureHandling: "greedy", styles: mStyles });
+            pickerMarker = new google.maps.Marker({ position: cAgs, map: map, draggable: true, title: "Ubicación" });
+            currentCircle = new google.maps.Circle({ map: map, fillColor: "#10b981", fillOpacity: 0.2, strokeColor: "#10b981", strokeWeight: 2, center: cAgs, radius: 0 });
+            pickerMarker.addListener("drag", () => { const p = pickerMarker.getPosition(); document.getElementById('zonas-lat').value = p.lat().toFixed(6); document.getElementById('zonas-lng').value = p.lng().toFixed(6); currentCircle.setCenter(p); });
+
+            if (document.getElementById("map-simulador")) {
+                simMap = new google.maps.Map(document.getElementById("map-simulador"), { center: cAgs, zoom: 12, disableDefaultUI: true, gestureHandling: "greedy", styles: mStyles });
+                simDirectionsService = new google.maps.DirectionsService(); simDirectionsRenderer = new google.maps.DirectionsRenderer({ map: simMap, suppressMarkers: true });
+                simMap.addListener("click", (e) => { handleSimMapClick(e.latLng); });
+            }
+        }
+
+        function updateMarkerFromForm() { const lt = parseFloat(document.getElementById('zonas-lat').value), ln = parseFloat(document.getElementById('zonas-lng').value); if (!isNaN(lt) && !isNaN(ln)) { const p = { lat: lt, lng: ln }; pickerMarker.setPosition(p); currentCircle.setCenter(p); map.panTo(p); } }
+        function updateCircleFromForm() { const r = parseFloat(document.getElementById('zonas-radio').value); if (!isNaN(r)) currentCircle.setRadius(r * 1000); }
+
+        function drawExistingZones(zones) {
+            existingZonesCircles.forEach(c => c.setMap(null)); existingZonesCircles = []; existingMainZonesCircles.forEach(c => c.setMap(null)); existingMainZonesCircles = [];
+            existingZonesLabels.forEach(l => l.setMap(null)); existingZonesLabels = []; existingMainZonesLabels.forEach(l => l.setMap(null)); existingMainZonesLabels = [];
+
+            zones.forEach(z => {
+                const cP = { lat: parseFloat(z.lat), lng: parseFloat(z.lng) };
+                const cO = { center: cP, radius: parseFloat(z.radio_km) * 1000, fillColor: "#3b82f6", fillOpacity: 0.1, strokeColor: "#3b82f6", strokeWeight: 1, clickable: false };
+                const lO = { position: cP, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }, label: { text: z.nombre, color: "#1e293b", fontSize: "11px", fontWeight: "bold" }, clickable: false };
+
+                existingZonesCircles.push(new google.maps.Circle({ ...cO, map: map })); existingZonesLabels.push(new google.maps.Marker({ ...lO, map: map }));
+                if (mapMain) { existingMainZonesCircles.push(new google.maps.Circle({ ...cO, map: mapMain })); existingMainZonesLabels.push(new google.maps.Marker({ ...lO, map: mapMain })); }
+            });
+        }
+
+        // ==========================================
+        // NAVEGACIÓN
+        // ==========================================
+        function showTab(tabName) {
+            const views = ['view-cargas', 'view-vehiculos', 'view-categorias', 'view-zonas', 'view-formula', 'view-configuracion', 'view-estadisticas'];
+            views.forEach(v => document.getElementById(v).classList.add('hidden'));
+
+            const tabs = ['cargas', 'vehiculos', 'categorias', 'zonas', 'formula', 'configuracion', 'estadisticas'];
+            const btnBaseClass = "flex-none py-2.5 px-6 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 whitespace-nowrap";
+            
+            tabs.forEach(t => { document.getElementById('tab-' + t).className = `${btnBaseClass} text-slate-600 hover:bg-slate-200`; });
+
+            document.getElementById('view-' + tabName).classList.remove('hidden');
+            const colorClasses = { cargas: 'text-blue-600', vehiculos: 'text-indigo-600', categorias: 'text-yellow-600', zonas: 'text-emerald-600', formula: 'text-purple-600', configuracion: 'text-orange-600', estadisticas: 'text-rose-600' };
+            document.getElementById('tab-' + tabName).className = `${btnBaseClass} bg-white shadow ${colorClasses[tabName]}`;
+
+            if (tabName === 'cargas') fetchCargas();
+            else if (tabName === 'vehiculos') { fetchVehiculos(); cargarCategoriasSelect(); }
+            else if (tabName === 'categorias') fetchCategoriasTabla();
+            else if (tabName === 'zonas') { fetchZonas(); setTimeout(() => { if (mapMain) google.maps.event.trigger(mapMain, 'resize'); }, 100); }
+            else if (tabName === 'formula') initSimulador();
+            else if (tabName === 'configuracion') fetchConfiguracion();
+            else if (tabName === 'estadisticas') fetchEstadisticas();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { showTab('estadisticas'); fetchCargas(); cargarCategoriasSelect(); });
+
+        // ==========================================
+        // CRUD CARGAS (TARIFAS BASE)
+        // ==========================================
+        async function fetchCargas() {
+            const tbody = document.getElementById('table-cargas'); tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">Cargando...</td></tr>';
+            const { data, error } = await adminSupabase.from(TBL_CARGAS).select('*').order('id', { ascending: true });
+            if (error) return;
+            tbody.innerHTML = data.map(r => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-4 text-[10px] md:text-sm text-slate-500">#${r.id}</td>
+                    <td class="px-4 py-4 text-[10px] md:text-sm font-bold text-slate-700">${r.tipo_carga}</td>
+                    <td class="px-4 py-4 text-[10px] md:text-sm font-mono text-blue-600">$${r.precio_base}</td>
+                    <td class="px-4 py-4 text-[10px] md:text-sm font-mono text-blue-600">$${r.precio_km}</td>
+                    <td class="px-4 py-4 text-[10px] md:text-sm font-mono text-orange-600">$${r.precio_extraccion || 0}</td>
+                    <td class="px-4 py-4 text-center space-x-1">
+                        <button onclick='editCarga(${JSON.stringify(r).replace(/'/g, "&#39;")})' class="text-[10px] md:text-sm text-blue-500 hover:bg-blue-50 p-1.5 md:p-2 rounded-lg">Editar</button>
+                        <button onclick="deleteCarga(${r.id})" class="text-[10px] md:text-sm text-red-500 hover:bg-red-50 p-1.5 md:p-2 rounded-lg">Borrar</button>
+                    </td>
+                </tr>`).join('');
+            if (document.getElementById('vehiculos-tipo-carga-id')) document.getElementById('vehiculos-tipo-carga-id').innerHTML = '<option value="">Selecciona...</option>' + data.map(r => `<option value="${r.id}">${r.tipo_carga} ($${r.precio_base})</option>`).join('');
+        }
+
+        document.getElementById('form-cargas').addEventListener('submit', async (e) => {
+            e.preventDefault(); const id = document.getElementById('cargas-id').value;
+            const py = { tipo_carga: document.getElementById('cargas-tipo').value, categoria: document.getElementById('cargas-categoria').value, precio_base: parseFloat(document.getElementById('cargas-base').value) || 0, precio_km: parseFloat(document.getElementById('cargas-km').value) || 0, precio_ruedas_bloqueadas: parseFloat(document.getElementById('cargas-ruedas').value) || 0, precio_abanderamiento: parseFloat(document.getElementById('cargas-abanderamiento').value) || 0, precio_extraccion: parseFloat(document.getElementById('cargas-extraccion').value) || 0, precio_tiempo_espera: parseFloat(document.getElementById('cargas-espera').value) || 0 };
+            const { error } = id ? await adminSupabase.from(TBL_CARGAS).update(py).eq('id', id) : await adminSupabase.from(TBL_CARGAS).insert([py]);
+            if (error) alert(error.message); else { closeModal('modal-cargas'); resetFormCargas(); fetchCargas(); }
+        });
+
+        function editCarga(r) {
+            document.getElementById('cargas-id').value = r.id; document.getElementById('cargas-tipo').value = r.tipo_carga; document.getElementById('cargas-categoria').value = r.categoria; document.getElementById('cargas-base').value = r.precio_base; document.getElementById('cargas-km').value = r.precio_km;
+            document.getElementById('cargas-ruedas').value = r.precio_ruedas_bloqueadas || 0; document.getElementById('cargas-abanderamiento').value = r.precio_abanderamiento || 0; document.getElementById('cargas-extraccion').value = r.precio_extraccion || 0; document.getElementById('cargas-espera').value = r.precio_tiempo_espera || 0;
+            document.getElementById('cargas-form-title').innerText = "Editando #" + r.id; openModal('modal-cargas');
+        }
+
+        async function deleteCarga(id) { if (confirm('¿Eliminar tarifa?')) { await adminSupabase.from(TBL_CARGAS).delete().eq('id', id); fetchCargas(); } }
+        function resetFormCargas() { document.getElementById('form-cargas').reset(); document.getElementById('cargas-id').value = ''; document.getElementById('cargas-form-title').innerText = "Nuevo Registro"; }
+
+        // ==========================================
+        // CRUD VEHÍCULOS
+        // ==========================================
+        async function fetchVehiculos() {
+            const tbody = document.getElementById('table-vehiculos'); tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">Cargando...</td></tr>';
+            const { data, error } = await adminSupabase.from(TBL_VEHICULOS).select('*, tipos_carga(id, tipo_carga), categorias_vehiculos(id, nombre)').order('orden', { ascending: true });
+            if (error) return;
+            tbody.innerHTML = data.map(r => `<tr class="hover:bg-slate-50 transition-colors"><td class="px-4 py-4 text-center text-[10px] md:text-sm font-bold text-slate-500">${r.orden}</td><td class="px-4 py-4 text-center flex justify-center items-center"><img src="${r.icono}" class="w-8 h-8 md:w-10 md:h-10 object-contain"></td><td class="px-4 py-4 text-[10px] md:text-sm font-bold text-slate-700">${r.nombre}</td><td class="px-4 py-4 text-[10px] md:text-sm text-slate-600">${r.categorias_vehiculos ? r.categorias_vehiculos.nombre : 'N/A'}</td><td class="px-4 py-4 text-[10px] md:text-sm text-slate-600">${r.tipos_carga ? r.tipos_carga.tipo_carga : 'N/A'}</td><td class="px-4 py-4 text-center space-x-1"><button onclick='editVehiculo(${JSON.stringify(r).replace(/'/g, "&#39;")})' class="text-[10px] md:text-sm text-indigo-500 hover:bg-indigo-50 p-1.5 md:p-2 rounded-lg">Editar</button><button onclick="deleteVehiculo(${r.id})" class="text-[10px] md:text-sm text-red-500 hover:bg-red-50 p-1.5 md:p-2 rounded-lg">Borrar</button></td></tr>`).join('');
+        }
+
+        document.getElementById('form-vehiculos').addEventListener('submit', async (e) => {
+            e.preventDefault(); const btn = document.getElementById('vehiculos-btn'); const originalText = btn.innerText; btn.innerText = "Subiendo..."; btn.disabled = true;
+            try {
+                const id = document.getElementById('vehiculos-id').value; let imageUrl = document.getElementById('vehiculos-imagen-url').value; const file = document.getElementById('vehiculos-archivo').files[0];
+                if (file) { const fN = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`; const { error: uE } = await adminSupabase.storage.from('fotos_vehiculos').upload(fN, file); if (uE) throw uE; imageUrl = adminSupabase.storage.from('fotos_vehiculos').getPublicUrl(fN).data.publicUrl; }
+                if (!id && !imageUrl) throw new Error("Selecciona una imagen.");
+                const py = { nombre: document.getElementById('vehiculos-nombre').value, tipo_carga_id: parseInt(document.getElementById('vehiculos-tipo-carga-id').value), categoria_id: parseInt(document.getElementById('vehiculos-categoria-id').value), icono: imageUrl, orden: parseInt(document.getElementById('vehiculos-orden').value) || 0 };
+                const { error } = id ? await adminSupabase.from(TBL_VEHICULOS).update(py).eq('id', id) : await adminSupabase.from(TBL_VEHICULOS).insert([py]);
+                if (error) throw error; closeModal('modal-vehiculos'); resetFormVehiculos(); fetchVehiculos();
+            } catch (err) { alert("Error: " + err.message); } finally { btn.innerText = originalText; btn.disabled = false; }
+        });
+
+        function editVehiculo(r) { document.getElementById('vehiculos-id').value = r.id; document.getElementById('vehiculos-nombre').value = r.nombre; document.getElementById('vehiculos-tipo-carga-id').value = r.tipo_carga_id; document.getElementById('vehiculos-categoria-id').value = r.categoria_id || ''; document.getElementById('vehiculos-imagen-url').value = r.icono; document.getElementById('vehiculos-archivo').value = ""; document.getElementById('vehiculos-orden').value = r.orden; document.getElementById('vehiculos-form-title').innerText = "Editando: " + r.nombre; openModal('modal-vehiculos'); }
+        async function deleteVehiculo(id) { if (confirm('¿Eliminar botón?')) { await adminSupabase.from(TBL_VEHICULOS).delete().eq('id', id); fetchVehiculos(); } }
+        function resetFormVehiculos() { document.getElementById('form-vehiculos').reset(); document.getElementById('vehiculos-id').value = ''; document.getElementById('vehiculos-imagen-url').value = ''; document.getElementById('vehiculos-form-title').innerText = "Nuevo Botón"; }
+
+        // ==========================================
+        // CRUD CATEGORÍAS
+        // ==========================================
+        async function cargarCategoriasSelect() { const { data, error } = await adminSupabase.from(TBL_CATEGORIAS).select('*'); if (!error && document.getElementById('vehiculos-categoria-id')) document.getElementById('vehiculos-categoria-id').innerHTML = '<option value="">Seleccione...</option>' + data.map(c => `<option value="${c.id}">${c.nombre}</option>`).join(''); }
+        async function fetchCategoriasTabla() { const tbody = document.getElementById('table-categorias'); tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">Cargando...</td></tr>'; const { data, error } = await adminSupabase.from(TBL_CATEGORIAS).select('*').order('id', { ascending: true }); if (error) return; tbody.innerHTML = data.map(r => `<tr class="hover:bg-slate-50 transition-colors"><td class="px-4 py-4 text-[10px] md:text-sm text-slate-500">#${r.id}</td><td class="px-4 py-4 text-center flex justify-center items-center"><img src="${r.icono || 'https://placehold.co/100x100?text=Sin+Img'}" class="w-8 h-8 md:w-10 md:h-10 object-contain"></td><td class="px-4 py-4 text-[10px] md:text-sm font-bold text-slate-700">${r.nombre}</td><td class="px-4 py-4 text-center space-x-1"><button onclick='editCategoria(${JSON.stringify(r).replace(/'/g, "&#39;")})' class="text-[10px] md:text-sm text-yellow-600 hover:bg-yellow-50 p-1.5 md:p-2 rounded-lg">Editar</button><button onclick="deleteCategoria(${r.id})" class="text-[10px] md:text-sm text-red-500 hover:bg-red-50 p-1.5 md:p-2 rounded-lg">Borrar</button></td></tr>`).join(''); }
+        
+        document.getElementById('form-categorias').addEventListener('submit', async (e) => {
+            e.preventDefault(); const btn = document.getElementById('categorias-btn'); const oT = btn.innerText; btn.innerText = "Subiendo..."; btn.disabled = true;
+            try {
+                const id = document.getElementById('categorias-id').value; let img = document.getElementById('categorias-imagen-url').value; const file = document.getElementById('categorias-archivo').files[0];
+                if (file) { const fN = `cat-${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`; const { error: uE } = await adminSupabase.storage.from('fotos_vehiculos').upload(fN, file); if (uE) throw uE; img = adminSupabase.storage.from('fotos_vehiculos').getPublicUrl(fN).data.publicUrl; }
+                const py = { nombre: document.getElementById('categorias-nombre').value, icono: img };
+                const { error } = id ? await adminSupabase.from(TBL_CATEGORIAS).update(py).eq('id', id) : await adminSupabase.from(TBL_CATEGORIAS).insert([py]);
+                if (error) throw error; closeModal('modal-categorias'); resetFormCategorias(); fetchCategoriasTabla(); cargarCategoriasSelect();
+            } catch (err) { alert("Error: " + err.message); } finally { btn.innerText = oT; btn.disabled = false; }
+        });
+        
+        function editCategoria(r) { document.getElementById('categorias-id').value = r.id; document.getElementById('categorias-nombre').value = r.nombre; document.getElementById('categorias-imagen-url').value = r.icono || ''; document.getElementById('categorias-archivo').value = ""; document.getElementById('categorias-form-title').innerText = "Editando #" + r.id; openModal('modal-categorias'); }
+        async function deleteCategoria(id) { if (confirm('¿Eliminar categoría?')) { const { error } = await adminSupabase.from(TBL_CATEGORIAS).delete().eq('id', id); if (error) alert('Error, puede haber vehículos usándola.'); else { fetchCategoriasTabla(); cargarCategoriasSelect(); } } }
+        function resetFormCategorias() { document.getElementById('form-categorias').reset(); document.getElementById('categorias-id').value = ''; document.getElementById('categorias-imagen-url').value = ''; document.getElementById('categorias-form-title').innerText = "Nueva Categoría"; }
+
+        // ==========================================
+        // CRUD ZONAS
+        // ==========================================
+        async function fetchZonas() {
+            const tbody = document.getElementById('table-zonas'); tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">Cargando...</td></tr>';
+            const { data, error } = await adminSupabase.from(TBL_ZONAS).select('*').order('nombre', { ascending: true }); if (error) return;
+            drawExistingZones(data);
+            tbody.innerHTML = data.map(r => `<tr class="hover:bg-slate-50 transition-colors"><td class="px-4 py-4 text-[10px] md:text-sm font-bold text-slate-700">${r.nombre}</td><td class="px-4 py-4 text-[10px] md:text-sm font-mono text-emerald-600">$${r.costo_zona}</td><td class="px-4 py-4 text-[10px] md:text-sm text-slate-600">${r.radio_km} km</td><td class="px-4 py-4 text-[9px] md:text-xs text-slate-400 font-mono">${r.lat}, ${r.lng}</td><td class="px-4 py-4 text-center space-x-1"><button onclick='editZona(${JSON.stringify(r)})' class="text-[10px] md:text-sm text-emerald-500 hover:bg-emerald-50 p-1.5 md:p-2 rounded-lg">Editar</button><button onclick="deleteZona(${r.id})" class="text-[10px] md:text-sm text-red-500 hover:bg-red-50 p-1.5 md:p-2 rounded-lg">Borrar</button></td></tr>`).join('');
+        }
+
+        document.getElementById('form-zonas').addEventListener('submit', async (e) => {
+            e.preventDefault(); const id = document.getElementById('zonas-id').value;
+            const py = { nombre: document.getElementById('zonas-nombre').value, costo_zona: parseFloat(document.getElementById('zonas-costo').value), radio_km: parseFloat(document.getElementById('zonas-radio').value), lat: parseFloat(document.getElementById('zonas-lat').value), lng: parseFloat(document.getElementById('zonas-lng').value) };
+            const { error } = id ? await adminSupabase.from(TBL_ZONAS).update(py).eq('id', id) : await adminSupabase.from(TBL_ZONAS).insert([py]);
+            if (error) alert(error.message); else { closeModal('modal-zonas'); resetFormZonas(); fetchZonas(); }
+        });
+
+        function editZona(r) { document.getElementById('zonas-id').value = r.id; document.getElementById('zonas-nombre').value = r.nombre; document.getElementById('zonas-costo').value = r.costo_zona; document.getElementById('zonas-radio').value = r.radio_km; document.getElementById('zonas-lat').value = r.lat; document.getElementById('zonas-lng').value = r.lng; document.getElementById('zonas-form-title').innerText = "Editando " + r.nombre; const pos = { lat: parseFloat(r.lat), lng: parseFloat(r.lng) }; pickerMarker.setPosition(pos); currentCircle.setCenter(pos); currentCircle.setRadius(r.radio_km * 1000); openModalZonas(); }
+        async function deleteZona(id) { if (confirm('¿Eliminar zona?')) { await adminSupabase.from(TBL_ZONAS).delete().eq('id', id); fetchZonas(); } }
+        function resetFormZonas() { document.getElementById('form-zonas').reset(); document.getElementById('zonas-id').value = ''; document.getElementById('zonas-form-title').innerText = "Nueva Zona"; currentCircle.setRadius(0); }
+
+        // ==========================================
+        // CONFIGURACIÓN & ESTADÍSTICAS
+        // ==========================================
+        async function fetchConfiguracion() {
+                    const { data: z } = await adminSupabase.from(TBL_ZONAS).select('*');
+                    if (z) document.getElementById('config-zona-base').innerHTML = '<option value="">Sin zona (Calculo normal)</option>' + z.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('');
+
+                    const { data } = await adminSupabase.from(TBL_CONFIGURACION).select('*');
+                    if (data) {
+                        const wp = data.find(d => d.clave === 'telefono_whatsapp'), noc = data.find(d => d.clave === 'recargo_nocturno'), desc = data.find(d => d.clave === 'descuento_porcentaje');
+                        const zb = data.find(d => d.clave === 'zona_base_default');
+                        const ignorados = data.find(d => d.clave === 'usuarios_ignorados');
+
+                        if (wp) document.getElementById('config-whatsapp').value = wp.valor;
+                        if (noc) document.getElementById('config-nocturno').value = noc.valor;
+                        if (desc) document.getElementById('config-descuento').value = desc.valor;
+                        if (zb) document.getElementById('config-zona-base').value = zb.valor;
+                        if (ignorados) document.getElementById('config-ignorados').value = ignorados.valor;
+                    }
+                }
+
+                document.getElementById('form-configuracion').addEventListener('submit', async (e) => {
+                    e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const msg = document.getElementById('msg-config'); btn.disabled = true; btn.innerText = 'Guardando...';
+                    const { error } = await adminSupabase.from(TBL_CONFIGURACION).upsert([
+                        { clave: 'telefono_whatsapp', valor: document.getElementById('config-whatsapp').value },
+                        { clave: 'recargo_nocturno', valor: document.getElementById('config-nocturno').value },
+                        { clave: 'descuento_porcentaje', valor: document.getElementById('config-descuento').value },
+                        { clave: 'zona_base_default', valor: document.getElementById('config-zona-base').value },
+                        { clave: 'usuarios_ignorados', valor: document.getElementById('config-ignorados').value }
+                    ], { onConflict: 'clave' });
+                    btn.disabled = false; btn.innerText = 'Guardar Ajustes'; if (error) alert('Error: ' + error.message); else { msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 3000); }
+                });
+
+        let demandaChartInstance = null;
+                window.eventosMeticasCache = {};
+
+                function abrirModalDetallesMeticas(index) {
+                    document.getElementById('contenido-detalles-estadisticas').innerHTML = window.eventosMeticasCache[index];
+                    openModal('modal-detalles-estadisticas');
+                }
+
+                async function ignorarUsuario(idUsuario) {
+                    if(!confirm('¿Ocultar a este usuario de las estadísticas? Sus visitas ya no sumarán en las gráficas.')) return;
+                    
+                    const inputConf = document.getElementById('config-ignorados');
+                    let actuales = inputConf ? inputConf.value : '';
+                    
+                    if(actuales.includes(idUsuario)) { alert('Este usuario ya está en la lista de ignorados.'); return; }
+                    
+                    let nuevoValor = actuales ? actuales + ',' + idUsuario : idUsuario;
+                    
+                    document.getElementById('contenido-detalles-estadisticas').innerHTML = '<p class="text-center text-slate-500 py-4 font-bold animate-pulse">Descartando usuario...</p>';
+
+                    await adminSupabase.from(TBL_CONFIGURACION).upsert([
+                        { clave: 'usuarios_ignorados', valor: nuevoValor }
+                    ], { onConflict: 'clave' });
+                    
+                    if(inputConf) inputConf.value = nuevoValor;
+                    
+                    closeModal('modal-detalles-estadisticas');
+                    fetchEstadisticas();
+                }
+
+        function limpiarFiltrosFecha() {
+                            if(document.getElementById('filtro-fecha-inicio')) document.getElementById('filtro-fecha-inicio').value = '';
+                            if(document.getElementById('filtro-fecha-fin')) document.getElementById('filtro-fecha-fin').value = '';
+                            actualizarColorBotones('todo');
+                            fetchEstadisticas();
+                        }
+        
+        function actualizarColorBotones(rangoActivo) {
+                    const botonesRango = ['hoy', 'ayer', '7dias', 'este_mes', 'mes_pasado', 'todo'];
+                    
+                    botonesRango.forEach(id => {
+                        const btn = document.getElementById(`btn-rango-${id}`);
+                        if (btn) {
+                            const margenExtra = id === 'todo' ? ' ml-auto md:ml-2' : '';
+                            const claseBase = "px-3 py-1.5 rounded-lg text-xs font-bold transition-colors" + margenExtra;
+                            
+                            if (id === rangoActivo) {
+                                btn.className = `${claseBase} bg-slate-800 hover:bg-slate-900 text-white shadow-sm`;
+                            } else {
+                                btn.className = `${claseBase} bg-slate-100 hover:bg-slate-200 text-slate-600`;
+                            }
+                        }
+                    });
+                }
+
+                function setRangoFechas(rango) {
+                                    // Si elegimos "Todo el tiempo", simplemente limpiamos los inputs y buscamos
+                                    if (rango === 'todo') {
+                                        if(document.getElementById('filtro-fecha-inicio')) document.getElementById('filtro-fecha-inicio').value = '';
+                                        if(document.getElementById('filtro-fecha-fin')) document.getElementById('filtro-fecha-fin').value = '';
+                                        actualizarColorBotones('todo');
+                                        fetchEstadisticas();
+                                        return;
+                                    }
+
+                                    const hoy = new Date();
+                                    let inicio = new Date();
+                                    let fin = new Date();
+
+                                    if (rango === 'hoy') {
+                                        // inicio y fin son hoy
+                                    } else if (rango === 'ayer') {
+                                        inicio.setDate(hoy.getDate() - 1);
+                                        fin.setDate(hoy.getDate() - 1);
+                                    } else if (rango === '7dias') {
+                                        inicio.setDate(hoy.getDate() - 7);
+                                    } else if (rango === 'este_mes') {
+                                        inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                                    } else if (rango === 'mes_pasado') {
+                                        inicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+                                        fin = new Date(hoy.getFullYear(), hoy.getMonth(), 0); // Día 0 del mes actual = último día del anterior
+                                    }
+
+                                    // Función interna para asegurar el formato AAAA-MM-DD
+                                    const formato = (fecha) => {
+                                        const y = fecha.getFullYear();
+                                        const m = String(fecha.getMonth() + 1).padStart(2, '0');
+                                        const d = String(fecha.getDate()).padStart(2, '0');
+                                        return `${y}-${m}-${d}`;
+                                    };
+
+                                    if(document.getElementById('filtro-fecha-inicio')) document.getElementById('filtro-fecha-inicio').value = formato(inicio);
+                                    if(document.getElementById('filtro-fecha-fin')) document.getElementById('filtro-fecha-fin').value = formato(fin);
+                                    
+                                    // Actualiza los colores usando la nueva función
+                                    actualizarColorBotones(rango);
+
+                                    // Ejecuta la búsqueda automáticamente
+                                    fetchEstadisticas();
+                                }
+
+        window.filtroTablaActual = 'todos';
+                window.estadisticasGlobales = [];
+                window.conteoUsuariosGlobal = {};
+
+                function setFiltroTabla(tipo) {
+                    window.filtroTablaActual = tipo;
+                    const btnCls = "px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap";
+                    const inactivo = `${btnCls} text-slate-500 hover:text-slate-700`;
+                    const activo = `${btnCls} bg-white shadow-sm text-slate-700`;
+                    
+                    document.getElementById('btn-filt-todos').className = tipo === 'todos' ? activo : inactivo;
+                    document.getElementById('btn-filt-visita').className = tipo === 'visita_pagina' ? activo : inactivo;
+                    document.getElementById('btn-filt-cotizador').className = tipo === 'abrio_cotizador' ? activo : inactivo;
+                    document.getElementById('btn-filt-whatsapp').className = tipo === 'solicitud_whatsapp' ? activo : inactivo;
+                    
+                    // Llama a dibujar la tabla instantáneamente sin recargar Supabase
+                    renderTablaEstadisticas();
+                }
+
+                async function fetchEstadisticas() {
+                    const tbody = document.getElementById('table-estadisticas');
+                    tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400 font-bold animate-pulse">Cargando métricas...</td></tr>';
+                    
+                    try {
+                        const inputConf = document.getElementById('config-ignorados');
+                        let ignoradosStr = inputConf ? inputConf.value : '';
+                        if (!ignoradosStr) {
+                            const { data: cData } = await adminSupabase.from(TBL_CONFIGURACION).select('valor').eq('clave', 'usuarios_ignorados').single();
+                            ignoradosStr = cData ? cData.valor : '';
+                        }
+                        const usuariosIgnorados = ignoradosStr.split(',').map(id => id.trim()).filter(id => id);
+
+                        let query = adminSupabase.from(TBL_ESTADISTICAS).select('*').order('created_at', { ascending: false });
+                        
+                        const fInicio = document.getElementById('filtro-fecha-inicio')?.value;
+                        const fFin = document.getElementById('filtro-fecha-fin')?.value;
+                        
+                        if (fInicio) {
+                            // Convierte la fecha de inicio local a UTC considerando tu zona horaria
+                            const startDate = new Date(`${fInicio}T00:00:00`);
+                            query = query.gte('created_at', startDate.toISOString());
+                        }
+                        if (fFin) {
+                            // Convierte la fecha de fin local a UTC
+                            const endDate = new Date(`${fFin}T23:59:59.999`);
+                            query = query.lte('created_at', endDate.toISOString());
+                        }
+
+                        const { data: rawData, error } = await query;
+                        if (error) throw error;
+                        
+                        const data = rawData.filter(r => {
+                            if (r.detalles && r.detalles.visitante_id && usuariosIgnorados.includes(r.detalles.visitante_id)) return false;
+                            return true;
+                        });
+
+                        if (!data || data.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">Sin registros en este periodo.</td></tr>';
+                            document.getElementById('stat-visitas').innerText = 0; document.getElementById('stat-cotizaciones').innerText = 0; document.getElementById('stat-whatsapp').innerText = 0;
+                            if (demandaChartInstance) demandaChartInstance.destroy();
+                            return;
+                        }
+
+                        window.conteoUsuariosGlobal = {};
+                        data.forEach(d => {
+                            if (d.detalles && d.detalles.visitante_id) {
+                                const vid = d.detalles.visitante_id;
+                                window.conteoUsuariosGlobal[vid] = (window.conteoUsuariosGlobal[vid] || 0) + 1;
+                            }
+                        });
+
+                        document.getElementById('stat-visitas').innerText = data.filter(d => d.tipo_evento === 'visita_pagina').length;
+                        document.getElementById('stat-cotizaciones').innerText = data.filter(d => d.tipo_evento === 'abrio_cotizador').length;
+                        document.getElementById('stat-whatsapp').innerText = data.filter(d => d.tipo_evento === 'solicitud_whatsapp').length;
+
+                        const esUnSoloDia = (fInicio && fFin && fInicio === fFin);
+                                                const conteoAgrupado = {};
+                                                
+                                                if (esUnSoloDia) {
+                                                    // Validar si el día seleccionado es hoy para no graficar horas futuras
+                                                    const hoy = new Date();
+                                                    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+                                                    const esHoy = (fInicio === hoyStr);
+                                                    
+                                                    // Si es hoy, limitamos a la hora actual. Si es un día pasado, graficamos hasta las 23 hrs.
+                                                    const limiteHoras = esHoy ? hoy.getHours() : 23;
+
+                                                    for (let i = 0; i <= limiteHoras; i++) {
+                                                        const ampm = i >= 12 ? 'PM' : 'AM';
+                                                        let hr12 = i % 12;
+                                                        hr12 = hr12 ? hr12 : 12;
+                                                        const hrStr = `${hr12.toString().padStart(2, '0')}:00 ${ampm}`;
+                                                        conteoAgrupado[hrStr] = { visita_pagina: 0, abrio_cotizador: 0, solicitud_whatsapp: 0 };
+                                                    }
+                                                }
+
+                        [...data].reverse().forEach(r => {
+                            const d = new Date(r.created_at);
+                            let etiqueta;
+                            
+                            if (esUnSoloDia) {
+                                const h = d.getHours();
+                                const ampm = h >= 12 ? 'PM' : 'AM';
+                                let hr12 = h % 12;
+                                hr12 = hr12 ? hr12 : 12;
+                                etiqueta = `${hr12.toString().padStart(2, '0')}:00 ${ampm}`;
+                            } else {
+                                etiqueta = d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+                            }
+
+                            if (!conteoAgrupado[etiqueta]) conteoAgrupado[etiqueta] = { visita_pagina: 0, abrio_cotizador: 0, solicitud_whatsapp: 0 };
+                            if (conteoAgrupado[etiqueta][r.tipo_evento] !== undefined) conteoAgrupado[etiqueta][r.tipo_evento]++;
+                        });
+
+                        const labels = Object.keys(conteoAgrupado);
+                        const dataVisitas = labels.map(l => conteoAgrupado[l].visita_pagina);
+                        const dataCotizador = labels.map(l => conteoAgrupado[l].abrio_cotizador);
+                        const dataWhatsapp = labels.map(l => conteoAgrupado[l].solicitud_whatsapp);
+
+                        const labelColors = labels.map(label => {
+                            if (esUnSoloDia) {
+                                const isPM = label.includes('PM');
+                                let h = parseInt(label.split(':')[0], 10);
+                                if (isPM && h !== 12) h += 12;
+                                if (!isPM && h === 12) h = 0;
+                                const esNoche = (h >= 18 || h < 6);
+                                return esNoche ? '#2563eb' : '#d97706';
+                            }
+                            return '#64748b';
+                        });
+
+                        const ctx = document.getElementById('demandaChart').getContext('2d');
+                        if (demandaChartInstance) demandaChartInstance.destroy();
+
+                        demandaChartInstance = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: '👁️ Visitas Web', data: dataVisitas, borderColor: '#cbd5e1', backgroundColor: 'rgba(203, 213, 225, 0.2)', fill: true, tension: 0.4 },
+                                    { label: '📍 Cotizaciones', data: dataCotizador, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 },
+                                    { label: '💬 WhatsApp (Leads)', data: dataWhatsapp, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.4 }
+                                ]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11, weight: 'bold' } } } },
+                                scales: {
+                                    y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+                                    x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: labelColors } }
+                                }
+                            }
+                        });
+
+                        // Guardamos los datos globales y mandamos a pintar la tabla
+                        window.estadisticasGlobales = data;
+                        renderTablaEstadisticas();
+
+                    } catch (err) { document.getElementById('table-estadisticas').innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-500 font-bold">Error de red.</td></tr>'; console.error(err); }
+                }
+
+                // NUEVA FUNCIÓN: Se encarga exclusivamente de renderizar y filtrar la tabla
+                function renderTablaEstadisticas() {
+                    const tbody = document.getElementById('table-estadisticas');
+                    if (!window.estadisticasGlobales) return;
+
+                    let dataTabla = window.estadisticasGlobales;
+                    
+                    // Aplicar el filtro de los botones
+                    if (window.filtroTablaActual && window.filtroTablaActual !== 'todos') {
+                        dataTabla = dataTabla.filter(r => r.tipo_evento === window.filtroTablaActual);
+                    }
+
+                    if (dataTabla.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-400">No hay registros con este filtro.</td></tr>';
+                        return;
+                    }
+
+                    window.eventosMeticasCache = {};
+
+                    tbody.innerHTML = dataTabla.map((r, index) => {
+                        const dO = new Date(r.created_at);
+                        const fD = dO.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+                        const fT = dO.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit', hour12: true });
+                        
+                        const hora = dO.getHours();
+                        const esNoche = hora >= 18 || hora < 6;
+                        
+                        const clasesTiempo = esNoche
+                            ? 'bg-slate-800 text-white shadow-sm border border-slate-900'
+                            : 'bg-amber-400 text-slate-900 shadow-sm border border-amber-500';
+                            
+                        const iconoTiempo = esNoche
+                            ? '<i class="fa-solid fa-moon text-indigo-300 mr-1.5"></i>'
+                            : '<i class="fa-solid fa-sun text-orange-700 mr-1.5"></i>';
+
+                        let bdg = `<span class="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md text-[10px] font-bold">${r.tipo_evento}</span>`;
+                        let dtHtml = '-';
+                        let visitanteIdInfo = '';
+                        let gpsLink = '';
+                        let idBloqueo = null;
+                        let infoUsuarioHtml = '';
+
+                        if (r.detalles) {
+                            if (r.detalles.visitante_id) {
+                                idBloqueo = r.detalles.visitante_id;
+                                const shortId = r.detalles.visitante_id.substring(0, 11) + '...';
+                                visitanteIdInfo = `<span class="mt-1 inline-block bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold" title="ID Usuario: ${r.detalles.visitante_id}"><i class="fa-solid fa-fingerprint mr-1"></i> ${shortId}</span>`;
+                                
+                                infoUsuarioHtml = `
+                                    <div class="bg-indigo-50/70 border border-indigo-100 p-4 rounded-xl mb-4 flex items-center justify-between shadow-sm">
+                                        <div class="w-2/3 pr-2 overflow-hidden">
+                                            <span class="text-[10px] font-bold text-indigo-400 uppercase block mb-1">ID de Usuario</span>
+                                            <span class="text-xs font-mono font-bold text-indigo-700 truncate block w-full" title="${idBloqueo}">${idBloqueo}</span>
+                                        </div>
+                                        <div class="w-1/3 text-right pl-2 border-l border-indigo-200">
+                                            <span class="text-[10px] font-bold text-indigo-400 uppercase block mb-1">Registros</span>
+                                            <span class="text-2xl font-black text-indigo-600 leading-none">${window.conteoUsuariosGlobal[idBloqueo]}</span>
+                                        </div>
+                                    </div>`;
+
+                                delete r.detalles.visitante_id;
+                            }
+                            if (r.detalles.gps_actual) {
+                                const lat = r.detalles.gps_actual.lat;
+                                const lng = r.detalles.gps_actual.lng;
+                                gpsLink = `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="mt-2 inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors w-full justify-center"><i class="fa-solid fa-location-crosshairs"></i> Abrir GPS en Maps</a>`;
+                                delete r.detalles.gps_actual;
+                            }
+                        }
+
+                        if (r.tipo_evento === 'visita_pagina') bdg = `<span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[10px] font-bold">Visita</span>`;
+                        else if (r.tipo_evento === 'abrio_cotizador') bdg = `<span class="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold">Cotizador</span>`;
+                        else if (r.tipo_evento === 'solicitud_whatsapp') {
+                            bdg = `<span class="bg-green-100 text-green-700 border border-green-200 px-2.5 py-1 rounded-md text-[10px] font-bold">WhatsApp</span>`;
+                            if(r.detalles) {
+                                dtHtml = `<div class="flex flex-col gap-3">
+                                            <div class="text-sm space-y-2 bg-green-50 p-4 rounded-xl border border-green-100 w-full">
+                                                <div><span class="font-bold text-slate-700"><i class="fa-solid fa-location-dot text-rose-500 w-4"></i> Origen:</span> <span class="text-slate-600">${r.detalles.origen || '-'}</span></div>
+                                                <div><span class="font-bold text-slate-700"><i class="fa-solid fa-flag-checkered text-blue-500 w-4"></i> Destino:</span> <span class="text-slate-600">${r.detalles.destino || '-'}</span></div>
+                                                <div class="bg-white border border-green-200 p-2 rounded-lg text-center mt-3">
+                                                    <span class="text-green-700 font-black text-lg">Cotizado: $${r.detalles.costo_cotizado}</span>
+                                                </div>
+                                            </div>
+                                          </div>`;
+                            }
+                        }
+                        
+                        if (dtHtml === '-' && r.detalles && Object.keys(r.detalles).length > 0) {
+                            dtHtml = `<div class="flex flex-col gap-2"><pre class="text-xs bg-slate-50 p-3 rounded-xl border overflow-x-auto w-full text-slate-600">${JSON.stringify(r.detalles, null, 2)}</pre></div>`;
+                        } else if (dtHtml === '-' && !gpsLink && !idBloqueo) {
+                            dtHtml = '-';
+                        }
+
+                        let btnBloqueo = idBloqueo ? `<button onclick="ignorarUsuario('${idBloqueo}')" class="mt-4 w-full bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-500 font-bold py-2 rounded-lg text-xs transition-colors"><i class="fa-solid fa-eye-slash"></i> Ocultar usuario de estadísticas</button>` : '';
+                        
+                        const dispHtml = `<div class="flex flex-col max-w-[100px] sm:max-w-[120px]"><span class="text-[9px] text-slate-400 truncate" title="${r.dispositivo || '-'}">${r.dispositivo || '-'}</span>${visitanteIdInfo}</div>`;
+
+                        let btnInfoHtml = `<span class="text-slate-300"><i class="fa-solid fa-minus"></i></span>`;
+                        
+                        if (dtHtml !== '-' || gpsLink || btnBloqueo || infoUsuarioHtml !== '') {
+                            window.eventosMeticasCache[index] = infoUsuarioHtml + (dtHtml !== '-' ? dtHtml : '') + (gpsLink ? gpsLink : '') + btnBloqueo;
+                            btnInfoHtml = `<button onclick="abrirModalDetallesMeticas(${index})" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 p-2 rounded-xl transition-all shadow-sm border border-indigo-100" title="Ver detalles"><i class="fa-solid fa-folder-open"></i></button>`;
+                        }
+
+                        return `<tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <div class="text-[10px] md:text-xs font-bold text-slate-700">${fD}</div>
+                                        <div class="mt-1.5 inline-flex items-center text-[10px] font-black px-2.5 py-1 rounded-md ${clasesTiempo}">
+                                            ${iconoTiempo}${fT}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap">${bdg}</td>
+                                    <td class="px-4 py-4">${dispHtml}</td>
+                                    <td class="px-4 py-4 text-center">${btnInfoHtml}</td>
+                                </tr>`;
+                    }).join('');
+                }
+
+        // ==========================================
+        // LÓGICA DEL SIMULADOR 100% DINÁMICO (Ctotal = B + (DxK) + M)
+        // ==========================================
+        let simTarifas = [];
+                let simConfig = { descuento: 0 };
+                let aplicaDescuentoActivo = true;
+       async function initSimulador() {
+            const { data: c } = await adminSupabase.from(TBL_CARGAS).select('*');
+            if (c) { simTarifas = c; document.getElementById('sim-tarifa').innerHTML = '<option value="">Selecciona una tarifa...</option>' + c.map(x => `<option value="${x.id}">${x.tipo_carga} (Base: $${x.precio_base})</option>`).join(''); }
+            
+            const { data: cf } = await adminSupabase.from(TBL_CONFIGURACION).select('*');
+            if (cf) { 
+                const desc = cf.find(d => d.clave === 'descuento_porcentaje'); 
+                if (desc) simConfig.descuento = parseFloat(desc.valor) || 0; 
+                document.getElementById('sim-desc-val').innerText = `${simConfig.descuento}%`; 
+                
+                // Leemos la zona por defecto de la BD y la guardamos en memoria
+                const zb = cf.find(d => d.clave === 'zona_base_default'); 
+                if (zb) window.simZonaBaseDefaultId = zb.valor; 
+            }
+            
+            // Cargar Zonas para el cálculo Foráneo Automático
+            const { data: z } = await adminSupabase.from(TBL_ZONAS).select('*');
+            if (z) {
+                window.simZonasGlobal = z; 
+                
+                // Actualizamos la etiqueta UI (si ya cambiaste el select por el texto de solo lectura)
+                const lblActiva = document.getElementById('lbl-zona-activa');
+                if (lblActiva) {
+                    if (window.simZonaBaseDefaultId) {
+                        const zonaActiva = z.find(x => x.id == window.simZonaBaseDefaultId);
+                        lblActiva.innerText = zonaActiva ? zonaActiva.nombre : "No definida";
+                    } else {
+                        lblActiva.innerText = "Cálculo Libre (Sin foráneo)";
+                    }
+                }
+            }
+
+            calcularSimulacion();
+        }
+
+        function showSimTab(tabName) {
+            document.querySelectorAll('.sim-panel').forEach(p => p.classList.add('hidden'));
+            const bBase = "flex flex-col items-center p-2 md:p-3 text-slate-300 rounded-xl border-2 border-transparent font-bold transition-all hover:bg-slate-700 w-24 md:w-28 cursor-pointer";
+            ['banderazo', 'arrastre', 'maniobras', 'descuento'].forEach(b => {
+                document.getElementById('sim-btn-' + b).className = "bg-slate-800 " + bBase;
+                document.getElementById('sim-btn-' + b).querySelector('span:first-child').className = "text-xs md:text-sm font-black text-slate-500 mb-1";
+            });
+            
+            document.getElementById('sim-panel-' + tabName).classList.remove('hidden');
+            const actBtn = document.getElementById('sim-btn-' + tabName), actBase = "bg-%c border-%c hover:bg-%h text-white shadow-lg scale-105 " + bBase;
+            
+            if(tabName === 'banderazo') { actBtn.className = actBase.replace(/%c/g, 'blue-500').replace('%h', 'blue-400'); actBtn.querySelector('span:first-child').className = "text-xs md:text-sm font-black text-blue-200 mb-1"; }
+            else if(tabName === 'arrastre') { actBtn.className = actBase.replace(/%c/g, 'indigo-500').replace('%h', 'indigo-400'); actBtn.querySelector('span:first-child').className = "text-xs md:text-sm font-black text-indigo-200 mb-1"; setTimeout(() => { if (simMap) google.maps.event.trigger(simMap, 'resize'); }, 100); }
+            else if(tabName === 'maniobras') { actBtn.className = actBase.replace(/%c/g, 'orange-500').replace('%h', 'orange-400'); actBtn.querySelector('span:first-child').className = "text-xs md:text-sm font-black text-orange-200 mb-1"; }
+            else if(tabName === 'descuento') { actBtn.className = actBase.replace(/%c/g, 'rose-500').replace('%h', 'rose-400'); actBtn.querySelector('span:first-child').className = "text-xs md:text-sm font-black text-rose-200 mb-1"; }
+        }
+
+        function setSimClickMode(mode) {
+            currentSimClickMode = mode;
+            document.getElementById('btn-sim-origen').className = mode === 'origen' ? "flex-1 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border-2 border-slate-800 shadow-sm transition-all" : "flex-1 py-2 bg-white text-slate-800 text-xs font-bold rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all";
+            document.getElementById('btn-sim-destino').className = mode === 'destino' ? "flex-1 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border-2 border-slate-800 shadow-sm transition-all" : "flex-1 py-2 bg-white text-slate-800 text-xs font-bold rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all";
+        }
+
+        function handleSimMapClick(latLng) {
+            if (currentSimClickMode === 'origen') { if (!simMarkerA) simMarkerA = new google.maps.Marker({ map: simMap, label: "A", position: latLng, animation: google.maps.Animation.DROP }); else simMarkerA.setPosition(latLng); setSimClickMode('destino'); }
+            else { if (!simMarkerB) simMarkerB = new google.maps.Marker({ map: simMap, label: "B", position: latLng, animation: google.maps.Animation.DROP }); else simMarkerB.setPosition(latLng); }
+            if (simMarkerA && simMarkerB) calcSimRoute();
+        }
+
+        function calcSimRoute() {
+                    let baseOrigen = { lat: 21.8853, lng: -102.2916 }; // Coordenada por defecto (Centro)
+                    let esForaneo = false;
+                    aplicaDescuentoActivo = true; // Reiniciamos la bandera por defecto en cada cálculo
+
+                    // Usar la zona almacenada globalmente desde Configuración
+                    if (window.simZonaBaseDefaultId && window.simZonasGlobal) {
+                        const zona = window.simZonasGlobal.find(z => z.id == window.simZonaBaseDefaultId);
+                        if (zona) {
+                            baseOrigen = { lat: parseFloat(zona.lat), lng: parseFloat(zona.lng) };
+                            
+                            const centroZona = new google.maps.LatLng(baseOrigen.lat, baseOrigen.lng);
+                            const radioMetros = parseFloat(zona.radio_km) * 1000;
+                            
+                            // Medir distancia entre el centro de la zona y AMBOS puntos
+                            const distA = google.maps.geometry.spherical.computeDistanceBetween(centroZona, simMarkerA.getPosition());
+                            const distB = google.maps.geometry.spherical.computeDistanceBetween(centroZona, simMarkerB.getPosition());
+                            
+                            // Sigue siendo foráneo si el origen (vehículo) está fuera
+                            if (distA > radioMetros) {
+                                esForaneo = true;
+                            }
+
+                            // NUEVO: Si CUALQUIERA de los dos puntos está fuera, se anula el descuento
+                            if (distA > radioMetros || distB > radioMetros) {
+                                aplicaDescuentoActivo = false;
+                            }
+                        }
+                    }
+
+                    // Lógica para Servicio Local: Punto A -> Punto B -> Regreso a Base
+                    let requestObj = {
+                        origin: simMarkerA.getPosition(),
+                        destination: baseOrigen, // El destino final ahora es el retorno a la base operativa
+                        waypoints: [
+                            { location: simMarkerB.getPosition(), stopover: true } // La entrega del auto es una parada intermedia
+                        ],
+                        travelMode: google.maps.TravelMode.DRIVING
+                    };
+
+                    // Lógica para Servicio Foráneo: Base -> Punto A -> Punto B -> Regreso a Base
+                    if (esForaneo) {
+                        requestObj = {
+                            origin: baseOrigen,
+                            destination: baseOrigen, // Sale de la base y regresa a la base operativa
+                            waypoints: [
+                                { location: simMarkerA.getPosition(), stopover: true }, // Parada 1: Recolección del vehículo
+                                { location: simMarkerB.getPosition(), stopover: true }  // Parada 2: Entrega del vehículo
+                            ],
+                            travelMode: google.maps.TravelMode.DRIVING
+                        };
+                    }
+
+                    simDirectionsService.route(requestObj, (res, status) => {
+                        if (status == 'OK') {
+                            simDirectionsRenderer.setDirections(res);
+                            
+                            // Sumar los metros de todos los tramos (legs) de la ruta calculada
+                            let totalMeters = 0;
+                            res.routes[0].legs.forEach(leg => {
+                                totalMeters += leg.distance.value;
+                            });
+                            
+                            document.getElementById('sim-km').value = (totalMeters / 1000).toFixed(1);
+                            calcularSimulacion();
+                        }
+                        else {
+                            alert("Google Maps no pudo encontrar una ruta válida.");
+                        }
+                    });
+                }
+
+        function calcularSimulacion() {
+                    const tId = document.getElementById('sim-tarifa').value;
+                    if (!tId) {
+                        ['lbl-banderazo','lbl-arrastre','lbl-maniobras','lbl-descuento','lbl-total'].forEach(id => document.getElementById(id).innerText = "$0.00");
+                        ['ruedas','abanderamiento','extraccion'].forEach(id => document.getElementById(`lbl-dyn-${id}`).innerText = "+ $0.00 MXN");
+                        document.getElementById('lbl-dyn-espera').innerText = "$0.00 MXN / hr"; return;
+                    }
+
+                    const t = simTarifas.find(x => x.id == tId);
+                    const pRuedas = parseFloat(t.precio_ruedas_bloqueadas) || 0, pAband = parseFloat(t.precio_abanderamiento) || 0, pExtra = parseFloat(t.precio_extraccion) || 0, pEspera = parseFloat(t.precio_tiempo_espera) || 0;
+
+                    document.getElementById('lbl-dyn-ruedas').innerText = `+ $${pRuedas.toFixed(2)} MXN`; document.getElementById('lbl-dyn-abanderamiento').innerText = `+ $${pAband.toFixed(2)} MXN`; document.getElementById('lbl-dyn-extraccion').innerText = `+ $${pExtra.toFixed(2)} MXN`; document.getElementById('lbl-dyn-espera').innerText = `$${pEspera.toFixed(2)} MXN / hr`;
+
+                    const pBase = parseFloat(t.precio_base) || 0, pKm = parseFloat(t.precio_km) || 0, kmIn = Math.max(0, parseFloat(document.getElementById('sim-km').value) || 0);
+                    const cKm = kmIn * pKm;
+                    
+                    const tManiobras = (document.getElementById('sim-ruedas').checked ? pRuedas : 0) + (document.getElementById('sim-abanderamiento').checked ? pAband : 0) + (document.getElementById('sim-extraccion').checked ? pExtra : 0) + (Math.max(0, parseFloat(document.getElementById('sim-horas-espera').value) || 0) * pEspera);
+
+                    const sTotal = pBase + cKm + tManiobras;
+                    
+                    // NUEVO: Calcular descuento solo si la bandera está activa (ambos puntos locales)
+                    let mDesc = 0;
+                    if (aplicaDescuentoActivo) {
+                        mDesc = sTotal * (simConfig.descuento / 100);
+                    }
+
+                    document.getElementById('lbl-banderazo').innerText = `$${pBase.toFixed(2)}`; 
+                    document.getElementById('lbl-arrastre').innerText = `$${cKm.toFixed(2)}`; 
+                    document.getElementById('lbl-maniobras').innerText = `$${tManiobras.toFixed(2)}`; 
+                    document.getElementById('lbl-descuento').innerText = `$${mDesc.toFixed(2)}`; 
+                    
+                    // EXTRA: Retroalimentación visual en la UI del panel de descuento
+                    const lblDescVal = document.getElementById('sim-desc-val');
+                    if (lblDescVal) {
+                        if (!aplicaDescuentoActivo && simConfig.descuento > 0) {
+                            lblDescVal.innerHTML = `<span class="text-slate-400 text-[10px] block leading-tight mt-1 mr-2">Fuera de<br>Zona</span> 0%`;
+                        } else {
+                            lblDescVal.innerText = `${simConfig.descuento}%`;
+                        }
+                    }
+
+                    document.getElementById('lbl-total').innerText = `$${(sTotal - mDesc).toFixed(2)}`;
+                }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAWBPU4YG9e9xWEZCrIeB_K4uBtlLBXHp4&libraries=places,geometry&callback=initMap" async defer></script>
+</body>
+</html>
